@@ -1,105 +1,119 @@
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-import requests
 import os
+import requests
+from flask import Flask, jsonify
 from dotenv import load_dotenv
-
-# Import functions
-from app import (
-    get_products,
-    generate_description,
-    update_product_description,
-    get_product_by_sku
-)
 
 load_dotenv()
 
+# =========================
+# ENV VARIABLES
+# =========================
+SHOP = "breechesdotcom.myshopify.com"
+SHOPIFY_TOKEN = os.getenv("SHOPIFY_TOKEN")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-app = FastAPI()
+if not SHOPIFY_TOKEN:
+    raise Exception("SHOPIFY_TOKEN is missing")
+
+if not ANTHROPIC_API_KEY:
+    raise Exception("ANTHROPIC_API_KEY is missing")
+
+SHOPIFY_URL = f"https://{SHOP}/admin/api/2024-10/graphql.json"
 
 # =========================
-# CORS
+# FLASK APP
 # =========================
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = Flask(__name__)
 
 # =========================
-# HOME
+# ROUTES
 # =========================
-@app.get("/")
+@app.route("/")
 def home():
-    return {"message": "API working"}
+    return "Server is running 🚀"
 
+@app.route("/products")
+def products():
+    return jsonify(get_products())
 
-# =========================
-# BULK GENERATE (ADMIN)
-# =========================
-@app.get("/generate")
-def generate():
-    try:
-        products_data = get_products()
-        products = products_data["data"]["products"]["edges"]
-
-        for product in products:
-            node = product["node"]
-
-            title = node["title"]
-            product_type = node.get("productType", "")
-            vendor = node.get("vendor", "")
-            product_id = node["id"]
-
-            new_desc = generate_description(title, product_type, vendor)
-
-            update_product_description(product_id, new_desc)
-
-        return {"status": "All products updated"}
-
-    except Exception as e:
-        return {"error": str(e)}
-
+@app.route("/product/<sku>")
+def product_by_sku(sku):
+    product = get_product_by_sku(sku)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+    return jsonify(product)
 
 # =========================
-# CHAT API
+# SHOPIFY FUNCTIONS
 # =========================
-@app.post("/chat")
-async def chat(request: Request):
-    try:
-        data = await request.json()
-        user_message = data.get("message")
-
-        url = "https://api.anthropic.com/v1/messages"
-
-        headers = {
-            "Content-Type": "application/json",
-            "x-api-key": ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01",
+def get_products():
+    query = """
+    {
+      products(first: 5) {
+        edges {
+          node {
+            id
+            title
+            productType
+            vendor
+            descriptionHtml
+          }
         }
+      }
+    }
+    """
 
-        payload = {
-            "model": "claude-3-5-sonnet-20240620",
-            "max_tokens": 300,
-            "messages": [
-                {"role": "user", "content": user_message}
-            ],
-        }
+    headers = {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": SHOPIFY_TOKEN,
+    }
 
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
+    response = requests.post(SHOPIFY_URL, headers=headers, json={"query": query})
+    response.raise_for_status()
 
-        result = response.json()
+    data = response.json()
+    return data
 
-        if "error" in result:
-            return {"error": result["error"]}
 
-        reply = result["content"][0]["text"]
+def get_product_by_sku(sku):
+    query = f"""
+    {{
+      productVariants(first: 1, query: "sku:{sku}") {{
+        edges {{
+          node {{
+            sku
+            product {{
+              id
+              title
+              descriptionHtml
+              productType
+              vendor
+            }}
+          }}
+        }}
+      }}
+    }}
+    """
 
-        return {"reply": reply}
+    headers = {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": SHOPIFY_TOKEN,
+    }
 
-    except Exception as e:
-        return {"error": str(e)}
+    response = requests.post(SHOPIFY_URL, headers=headers, json={"query": query})
+    response.raise_for_status()
+
+    data = response.json()
+
+    edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
+
+    if not edges:
+        return None
+
+    return edges[0]["node"]["product"]
+
+# =========================
+# RUN SERVER (LOCAL TEST)
+# =========================
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
