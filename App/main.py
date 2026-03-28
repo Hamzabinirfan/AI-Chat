@@ -1,52 +1,39 @@
-import os
-import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+import os
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# =========================
-# ENV VARIABLES
-# =========================
 SHOP = "breechesdotcom.myshopify.com"
 SHOPIFY_TOKEN = os.getenv("SHOPIFY_TOKEN")
-if not SHOPIFY_TOKEN:
-    print("⚠️ Missing SHOPIFY_TOKEN")
-
 SHOPIFY_URL = f"https://{SHOP}/admin/api/2024-10/graphql.json"
 
-# =========================
-# FLASK APP
-# =========================
 app = Flask(__name__)
 
-# ✅ CORS (IMPORTANT)
-CORS(app, resources={r"/*": {"origins": "*"}})
+# ✅ CORS fix - explicitly allow all origins
+CORS(app, origins="*", allow_headers=["Content-Type"], methods=["GET", "POST", "OPTIONS"])
 
-# ✅ Preflight handler
 @app.after_request
 def after_request(response):
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-    response.headers.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
 
-# =========================
-# ROUTES
-# =========================
 @app.route("/")
 def home():
     return "Server is running 🚀"
 
-# =========================
-# CHAT ENDPOINT (SHOPIFY)
-# =========================
 @app.route("/chat", methods=["POST", "OPTIONS"])
 def chat():
-    # Handle preflight request
     if request.method == "OPTIONS":
-        return jsonify({}), 200
+        response = jsonify({})
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        return response, 200
 
     try:
         data = request.get_json()
@@ -55,99 +42,11 @@ def chat():
         if not message:
             return jsonify({"error": "Message is required"}), 400
 
-        # Simple response (you can replace with AI later)
         reply = f"🤖 You said: {message}"
-
         return jsonify({"reply": reply})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# =========================
-# SHOPIFY PRODUCTS
-# =========================
-@app.route("/products")
-def products():
-    return jsonify(get_products())
-
-
-@app.route("/product/<sku>")
-def product_by_sku(sku):
-    product = get_product_by_sku(sku)
-    if not product:
-        return jsonify({"error": "Product not found"}), 404
-    return jsonify(product)
-
-# =========================
-# SHOPIFY FUNCTIONS
-# =========================
-def get_products():
-    query = """
-    {
-      products(first: 5) {
-        edges {
-          node {
-            id
-            title
-            productType
-            vendor
-            descriptionHtml
-          }
-        }
-      }
-    }
-    """
-
-    headers = {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": SHOPIFY_TOKEN,
-    }
-
-    response = requests.post(SHOPIFY_URL, headers=headers, json={"query": query})
-    response.raise_for_status()
-
-    return response.json()
-
-
-def get_product_by_sku(sku):
-    query = f"""
-    {{
-      productVariants(first: 1, query: "sku:{sku}") {{
-        edges {{
-          node {{
-            sku
-            product {{
-              id
-              title
-              descriptionHtml
-              productType
-              vendor
-            }}
-          }}
-        }}
-      }}
-    }}
-    """
-
-    headers = {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": SHOPIFY_TOKEN,
-    }
-
-    response = requests.post(SHOPIFY_URL, headers=headers, json={"query": query})
-    response.raise_for_status()
-
-    data = response.json()
-
-    edges = data.get("data", {}).get("productVariants", {}).get("edges", [])
-
-    if not edges:
-        return None
-
-    return edges[0]["node"]["product"]
-
-# =========================
-# RUN SERVER (LOCAL)
-# =========================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
