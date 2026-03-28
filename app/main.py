@@ -133,13 +133,7 @@ If a product is not in the list, say it's not currently available.""",
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-```
-
-## Steps:
-
-**1. Anthropic API Key lao:**
-- `https://console.anthropic.com` pe jaao → API Keys → New Key banao
-
+    
 **2. Render → Environment tab mein add karo:**
 ```
 ANTHROPIC_API_KEY = sk-ant-xxxxxxxx
