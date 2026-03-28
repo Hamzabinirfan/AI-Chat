@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -40,6 +40,20 @@ def product_by_sku(sku):
         return jsonify({"error": "Product not found"}), 404
     return jsonify(product)
 
+# ✅ NEW: CHAT ENDPOINT (FOR SHOPIFY)
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.get_json()
+    user_message = data.get("message", "")
+
+    if not user_message:
+        return jsonify({"error": "Message is required"}), 400
+
+    # Simple response (you can connect AI later)
+    reply = f"🤖 You said: {user_message}"
+
+    return jsonify({"reply": reply})
+
 # =========================
 # SHOPIFY FUNCTIONS
 # =========================
@@ -68,8 +82,7 @@ def get_products():
     response = requests.post(SHOPIFY_URL, headers=headers, json={"query": query})
     response.raise_for_status()
 
-    data = response.json()
-    return data
+    return response.json()
 
 
 def get_product_by_sku(sku):
