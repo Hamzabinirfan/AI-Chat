@@ -21,7 +21,7 @@ SHOPIFY_URL = f"https://{SHOP}/admin/api/2024-10/graphql.json"
 # FLASK APP
 # =========================
 app = Flask(__name__)
-
+CORS(app)
 # =========================
 # ROUTES
 # =========================
