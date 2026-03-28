@@ -1,6 +1,7 @@
 import os
 import requests
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,7 +22,10 @@ SHOPIFY_URL = f"https://{SHOP}/admin/api/2024-10/graphql.json"
 # FLASK APP
 # =========================
 app = Flask(__name__)
-CORS(app)
+
+# ✅ CORS FIX (IMPORTANT)
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 # =========================
 # ROUTES
 # =========================
@@ -29,9 +33,33 @@ CORS(app)
 def home():
     return "Server is running 🚀"
 
+# =========================
+# CHAT ENDPOINT (SHOPIFY USE)
+# =========================
+@app.route("/chat", methods=["POST"])
+def chat():
+    try:
+        data = request.get_json()
+        message = data.get("message", "")
+
+        if not message:
+            return jsonify({"error": "Message is required"}), 400
+
+        # Simple reply (later you can connect AI)
+        reply = f"🤖 You said: {message}"
+
+        return jsonify({"reply": reply})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# =========================
+# SHOPIFY PRODUCTS
+# =========================
 @app.route("/products")
 def products():
     return jsonify(get_products())
+
 
 @app.route("/product/<sku>")
 def product_by_sku(sku):
@@ -39,20 +67,6 @@ def product_by_sku(sku):
     if not product:
         return jsonify({"error": "Product not found"}), 404
     return jsonify(product)
-
-# ✅ NEW: CHAT ENDPOINT (FOR SHOPIFY)
-@app.route("/chat", methods=["POST"])
-def chat():
-    data = request.get_json()
-    user_message = data.get("message", "")
-
-    if not user_message:
-        return jsonify({"error": "Message is required"}), 400
-
-    # Simple response (you can connect AI later)
-    reply = f"🤖 You said: {user_message}"
-
-    return jsonify({"reply": reply})
 
 # =========================
 # SHOPIFY FUNCTIONS
