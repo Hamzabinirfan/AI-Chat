@@ -104,7 +104,7 @@ def chat():
         )
 
         result = response.json()
-        reply = result["content"][0]["text"]
+        print(f"API Response: {result}")
 
         return jsonify({"reply": reply})
 
