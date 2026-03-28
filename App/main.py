@@ -23,8 +23,16 @@ SHOPIFY_URL = f"https://{SHOP}/admin/api/2024-10/graphql.json"
 # =========================
 app = Flask(__name__)
 
-# ✅ CORS FIX (IMPORTANT)
+# ✅ CORS (IMPORTANT)
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# ✅ Preflight handler
+@app.after_request
+def after_request(response):
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+    response.headers.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    return response
 
 # =========================
 # ROUTES
@@ -34,10 +42,14 @@ def home():
     return "Server is running 🚀"
 
 # =========================
-# CHAT ENDPOINT (SHOPIFY USE)
+# CHAT ENDPOINT (SHOPIFY)
 # =========================
-@app.route("/chat", methods=["POST"])
+@app.route("/chat", methods=["POST", "OPTIONS"])
 def chat():
+    # Handle preflight request
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
+
     try:
         data = request.get_json()
         message = data.get("message", "")
@@ -45,7 +57,7 @@ def chat():
         if not message:
             return jsonify({"error": "Message is required"}), 400
 
-        # Simple reply (later you can connect AI)
+        # Simple response (you can replace with AI later)
         reply = f"🤖 You said: {message}"
 
         return jsonify({"reply": reply})
@@ -137,7 +149,7 @@ def get_product_by_sku(sku):
     return edges[0]["node"]["product"]
 
 # =========================
-# RUN SERVER (LOCAL TEST)
+# RUN SERVER (LOCAL)
 # =========================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
