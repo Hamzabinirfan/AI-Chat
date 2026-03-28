@@ -12,11 +12,8 @@ SHOP = "breechesdotcom.myshopify.com"
 SHOPIFY_TOKEN = os.getenv("SHOPIFY_TOKEN")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-if not SHOPIFY_TOKEN:
-    raise Exception("SHOPIFY_TOKEN is missing")
-
-if not ANTHROPIC_API_KEY:
-    raise Exception("ANTHROPIC_API_KEY is missing")
+if not SHOPIFY_TOKEN or not ANTHROPIC_API_KEY:
+    print("⚠️ Missing environment variables")
 
 SHOPIFY_URL = f"https://{SHOP}/admin/api/2024-10/graphql.json"
 
