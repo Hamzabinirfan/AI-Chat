@@ -23,11 +23,8 @@ def after_request(response):
 
 @app.route("/")
 def home():
-    return "Server is running 🚀"
+    return "Server is running"
 
-# =========================
-# SHOPIFY FUNCTIONS
-# =========================
 def get_products():
     query = """
     {
@@ -38,7 +35,6 @@ def get_products():
             title
             productType
             vendor
-            descriptionHtml
             variants(first: 5) {
               edges {
                 node {
@@ -61,7 +57,6 @@ def get_products():
     response.raise_for_status()
     return response.json()
 
-
 def format_products_for_ai(products_data):
     edges = products_data.get("data", {}).get("products", {}).get("edges", [])
     product_list = []
@@ -73,10 +68,6 @@ def format_products_for_ai(products_data):
         product_list.append(f"- {node['title']} | Type: {node['productType']} | Price: {price_str}")
     return "\n".join(product_list)
 
-
-# =========================
-# CHAT ENDPOINT
-# =========================
 @app.route("/chat", methods=["POST", "OPTIONS"])
 def chat():
     if request.method == "OPTIONS":
@@ -89,14 +80,12 @@ def chat():
         if not message:
             return jsonify({"error": "Message is required"}), 400
 
-        # Shopify se products fetch karo
         try:
             products_data = get_products()
             products_text = format_products_for_ai(products_data)
         except Exception:
             products_text = "Product information currently unavailable."
 
-        # Claude AI call with products context
         response = requests.post(
             "https://api.anthropic.com/v1/messages",
             headers={
@@ -107,15 +96,7 @@ def chat():
             json={
                 "model": "claude-3-5-haiku-20241022",
                 "max_tokens": 500,
-                "system": f"""You are a helpful shopping assistant for Breeches.com, an equestrian clothing store.
-Answer customer questions helpfully and concisely.
-Always respond in the same language the customer uses.
-
-Here are our current products:
-{products_text}
-
-Use this product information to answer customer queries about availability, pricing, and product types.
-If a product is not in the list, say it's not currently available.""",
+                "system": f"You are a helpful shopping assistant for Breeches.com, an equestrian clothing store. Answer customer questions helpfully and concisely. Here are our current products:\n{products_text}",
                 "messages": [
                     {"role": "user", "content": message}
                 ]
@@ -130,11 +111,5 @@ If a product is not in the list, say it's not currently available.""",
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-    
-**2. Render → Environment tab mein add karo:**
-```
-ANTHROPIC_API_KEY = sk-ant-xxxxxxxx
-SHOPIFY_TOKEN = (pehle se set hai)
