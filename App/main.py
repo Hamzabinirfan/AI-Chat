@@ -11,10 +11,8 @@ load_dotenv()
 # =========================
 SHOP = "breechesdotcom.myshopify.com"
 SHOPIFY_TOKEN = os.getenv("SHOPIFY_TOKEN")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-
-if not SHOPIFY_TOKEN or not ANTHROPIC_API_KEY:
-    print("⚠️ Missing environment variables")
+if not SHOPIFY_TOKEN:
+    print("⚠️ Missing SHOPIFY_TOKEN")
 
 SHOPIFY_URL = f"https://{SHOP}/admin/api/2024-10/graphql.json"
 
